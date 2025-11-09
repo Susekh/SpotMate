@@ -1,3 +1,5 @@
+'use client';
+
 import Link from "next/link";
 import GradientBlinds from "./components/ui/GradientBlinds";
 import Image from "next/image";
@@ -67,15 +69,15 @@ export default function HomePage() {
 
           {/* Minimal Hero Illustration */}
           <div className="hidden lg:flex rounded-3xl p-4 items-center justify-center bg-white/10 overflow-hidden">
-              <Image
-                src={conf.heroImage}
-                alt="Hero Illustration"
-                width={400}
-                height={400}
-                className="object-contain rounded-2xl"
-                priority
-              />
-            </div>
+            <Image
+              src={conf.heroImage}
+              alt="Hero Illustration"
+              width={400}
+              height={400}
+              className="object-contain rounded-2xl"
+              priority
+            />
+          </div>
         </div>
       </section>
     </main>
