@@ -3,7 +3,7 @@ import Navigation from "./components/Navigation";
 import Footer from "./components/Footer";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import "./globals.css"
+import RootStylesheet from "./components/RootStyleSheet";
 import { ThemeProvider } from "./components/ThemeWrapper";
 import { Toaster } from "react-hot-toast";
 
@@ -24,6 +24,7 @@ export default async function RootLayout({
       <body
         className={` antialiased`}
       >
+        <RootStylesheet/>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
