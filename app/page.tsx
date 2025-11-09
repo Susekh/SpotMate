@@ -1,6 +1,7 @@
 import Link from "next/link";
 import GradientBlinds from "./components/ui/GradientBlinds";
 import Image from "next/image";
+import "./globals.css";
 import conf from "./conf/conf";
 
 export default function HomePage() {
