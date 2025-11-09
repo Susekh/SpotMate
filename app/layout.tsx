@@ -3,6 +3,7 @@ import Navigation from "./components/Navigation";
 import Footer from "./components/Footer";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
+import "./globals.css"
 import { ThemeProvider } from "./components/ThemeWrapper";
 import { Toaster } from "react-hot-toast";
 
