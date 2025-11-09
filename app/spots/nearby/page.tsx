@@ -55,7 +55,16 @@ export default function NearbySpotsPage() {
   );
 
   // Get user location on mount
+  // Inside NearbySpotsPage
   useEffect(() => {
+    const cachedLocation = sessionStorage.getItem("userLocation");
+    if (cachedLocation) {
+      const location = JSON.parse(cachedLocation);
+      setUserLocation(location);
+      setLocating(false);
+      return;
+    }
+
     if (!navigator.geolocation) {
       setError("Geolocation is not supported by your browser.");
       setLocating(false);
@@ -70,6 +79,7 @@ export default function NearbySpotsPage() {
           lng: pos.coords.longitude,
         };
         setUserLocation(location);
+        sessionStorage.setItem("userLocation", JSON.stringify(location));
         setLocating(false);
       },
       () => {
@@ -98,6 +108,7 @@ export default function NearbySpotsPage() {
           lng: pos.coords.longitude,
         };
         setUserLocation(location);
+        sessionStorage.setItem("userLocation", JSON.stringify(location));
         setLocating(false);
       },
       () => {

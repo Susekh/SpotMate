@@ -10,6 +10,7 @@ export interface SpotDocument extends Document {
     description: string;
     tags: string[];
     location: GeoJSONPoint;
+    gallery : string[];
     createdBy: string;
     createdAt: Date;
 }
@@ -23,6 +24,7 @@ const SpotSchema = new Schema<SpotDocument>({
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
     tags: { type: [String], default: [] },
+    gallery : {type : [String], default : []},
     location: { type: GeoJSONPointSchema, required: true },
     createdBy: { type: String, required: true },
     createdAt: { type: Date, default: Date.now },

@@ -26,6 +26,8 @@ export async function GET(req: NextRequest) {
     // --- 1. Check cache first ---
     const cached = await redis.get(cacheKey);
     if (cached) {
+      console.log("Redis Cached key ::", cacheKey);
+      
       return NextResponse.json(JSON.parse(cached));
     }
 
@@ -40,7 +42,7 @@ export async function GET(req: NextRequest) {
           near: { type: "Point", coordinates: [lng, lat] },
           distanceField: "distanceMeters",
           spherical: true,
-          maxDistance: 5000,
+          maxDistance: 10000,
         },
       });
     } else {

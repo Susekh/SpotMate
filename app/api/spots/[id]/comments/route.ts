@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { connectDB } from "@/lib/dbConnect";
 import { CommentModel } from "@/lib/db/comment.model";
 import { auth } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -41,9 +42,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         await connectDB();
         const comment = await CommentModel.create({
             spotId: id,
+            username : session.user.name,
             userId: session.user.id,
             content: content.trim(),
         });
+        logger.debug({comment}, "comment created");
         return NextResponse.json({ comment }, { status: 201 });
     } catch (error) {
         console.error(error);

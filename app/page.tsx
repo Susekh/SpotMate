@@ -22,7 +22,6 @@ export default function HomePage() {
           shineDirection="left"
           mixBlendMode="lighten"
         />
-        {/* Overlay for better text readability */}
         <div className="absolute inset-0 bg-black/40"></div>
       </div>
 

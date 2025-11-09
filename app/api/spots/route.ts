@@ -11,8 +11,12 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { title, description, tags, location } = body as {
-            title: string; description: string; tags?: string[]; location: { lat: number; lng: number };
+        const { title, description, tags, location, gallery } = body as {
+            title: string;
+            description: string;
+            tags?: string[];
+            location: { lat: number; lng: number };
+            gallery?: string[];
         };
 
         if (!title || !description || !location?.lat || !location?.lng) {
@@ -25,6 +29,7 @@ export async function POST(req: NextRequest) {
             title,
             description,
             tags: Array.isArray(tags) ? tags : [],
+            gallery: Array.isArray(gallery) ? gallery : [],
             location: { type: "Point", coordinates: [location.lng, location.lat] },
             createdBy: session.user.id,
         });
@@ -35,5 +40,3 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
-
-

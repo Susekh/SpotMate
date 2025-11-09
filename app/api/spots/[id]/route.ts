@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { connectDB } from "@/lib/dbConnect";
 import { SpotModel } from "@/lib/db/spot.model";
 import redis from "@/lib/redis";
+import { auth } from "@/lib/auth";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -31,4 +32,52 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     }
 }
 
+export async function DELETE(
+  req: NextRequest,
+{ params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const session = await auth.api.getSession({headers : req.headers});
+    const userId = session?.user?.id;
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized: Please log in." },
+        { status: 401 }
+      );
+    }
+
+    await connectDB();
+
+    const spot = await SpotModel.findById(id);
+
+    if (!spot) {
+      return NextResponse.json({ error: "Spot not found." }, { status: 404 });
+    }
+
+    // Authorization check
+    if (spot.createdBy.toString() !== userId) {
+      return NextResponse.json(
+        { error: "Forbidden: You do not have permission to delete this spot." },
+        { status: 403 }
+      );
+    }
+
+    await SpotModel.findByIdAndDelete(id);
+
+    return NextResponse.json(
+      { msg: "Spot deleted successfully", success: true },
+      { status: 200 }
+    );
+    
+  } catch (error) {
+    console.error("Error in deleting spot ::", error);
+    return NextResponse.json(
+      { error: "Internal server Error" },
+      { status: 500 }
+    );
+  }
+}
 
