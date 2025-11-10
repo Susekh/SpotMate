@@ -89,14 +89,12 @@ export default function NearbySpotsPage() {
     );
   }, []);
 
-  // Reactive effect - triggers when filters change or location is available
   useEffect(() => {
     if (userLocation) {
       fetchNearby(userLocation.lat, userLocation.lng);
     }
   }, [userLocation, fetchNearby]);
 
-  // Manual refresh function
   function handleRefresh() {
     if (!navigator.geolocation) return;
 

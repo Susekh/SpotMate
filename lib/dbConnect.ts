@@ -1,41 +1,49 @@
 import mongoose from "mongoose";
 
 type ConnectionObject = {
-    isConnected?: number;
-}
+  isConnected?: number;
+};
 
 const connection: ConnectionObject = {};
-let client: mongoose.mongo.MongoClient | null = null;
-
-const MONGODB_URI: string = process.env.MONGODB_URI || "";
+const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
-    throw new Error("Please define the MONGODB_URI environment variable in .env.local");
+  throw new Error("Please define MONGODB_URI in environment variables");
 }
 
-async function connectDB(): Promise<void> {
-    if (connection.isConnected) {
-        console.log("Already connected to the database");
-        return;
-    }
+export async function connectDB(): Promise<void> {
+  if (connection.isConnected) {
+    return;
+  }
 
-    try {
-        const db = await mongoose.connect(MONGODB_URI);
-        connection.isConnected = db.connections[0].readyState;
-        client = db.connections[0].getClient();
-        console.log("Connected to the database");
-    } catch (error) {
-        console.error("Error connecting to the database", error);
-        process.exit(1);
-    }
+  // If already connected OR connecting, reuse it
+  if (mongoose.connection.readyState >= 1) {
+    connection.isConnected = mongoose.connection.readyState;
+    return;
+  }
+
+  try {
+    const db = await mongoose.connect(MONGODB_URI ?? '', {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+    });
+
+    connection.isConnected = db.connections[0].readyState;
+
+    // prevent adding multiple listeners
+    mongoose.connection.getClient().setMaxListeners(0);
+
+    console.log("✅ MongoDB Connected");
+  } catch (err) {
+    console.error("❌ MongoDB Connection Failed:", err);
+    throw err;
+  }
 }
 
-// Accessor function to safely get the client after connection
-function getClient(): mongoose.mongo.MongoClient {
-    if (!client) {
-        throw new Error("MongoClient is not initialized. Please call connectDB() first.");
-    }
-    return client;
+// Safe accessor if needed
+export function getClient() {
+  if (!mongoose.connection.getClient) {
+    throw new Error("Mongo Client not initialized.");
+  }
+  return mongoose.connection.getClient();
 }
-
-export { connectDB, getClient };

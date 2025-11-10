@@ -3,15 +3,23 @@ import { connectDB } from "@/lib/dbConnect";
 import { SpotModel } from "@/lib/db/spot.model";
 import { PipelineStage } from "mongoose";
 import redis from "@/lib/redis";
+import { UserProfileModel } from "@/lib/db/userProfile.model";
+import { auth } from "@/lib/auth";
+import crypto from "crypto";
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
+
     const lat = parseFloat(searchParams.get("lat") || "");
     const lng = parseFloat(searchParams.get("lng") || "");
     const tagsParam = searchParams.get("tags");
     const q = (searchParams.get("q") || "").trim();
     const global = searchParams.get("global") === "1";
+
+    const session = await auth.api.getSession({ headers: req.headers });
+    const userId = session?.user?.id;
+
     const tags = tagsParam
       ? tagsParam.split(",").map((t) => t.trim()).filter(Boolean)
       : [];
@@ -20,19 +28,30 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "lat and lng are required" }, { status: 400 });
     }
 
-    // --- Build a cache key ---
-    const cacheKey = `spots:${lat}:${lng}:${global}:${tags.join(",")}:${q}`;
+    await connectDB();
 
-    // --- 1. Check cache first ---
+    let userInterests: string[] = [];
+    if (userId) {
+      const profile = await UserProfileModel.findOne({ userId }).lean();
+      if (profile?.interests?.length) {
+        userInterests = profile.interests;
+      }
+    }
+
+    const interestsHash = crypto
+      .createHash("md5")
+      .update(userInterests.join(","))
+      .digest("hex");
+
+    const cacheKey = `spots:${lat}:${lng}:${global}:${tags.join(",")}:${q}:${userId}:${interestsHash}`;
+
     const cached = await redis.get(cacheKey);
     if (cached) {
-      console.log("Redis Cached key ::", cacheKey);
-      
+      console.log("✅ Cache HIT:", cacheKey);
       return NextResponse.json(JSON.parse(cached));
     }
 
-    // --- 2. Cache miss → connect DB ---
-    await connectDB();
+    console.log("⚠️ Cache MISS → Fetching from DB:", cacheKey);
 
     const pipeline: PipelineStage[] = [];
 
@@ -64,7 +83,11 @@ export async function GET(req: NextRequest) {
                               $divide: [
                                 {
                                   $subtract: [
-                                    { $degreesToRadians: { $arrayElemAt: ["$location.coordinates", 1] } },
+                                    {
+                                      $degreesToRadians: {
+                                        $arrayElemAt: ["$location.coordinates", 1],
+                                      },
+                                    },
                                     { $degreesToRadians: lat },
                                   ],
                                 },
@@ -78,7 +101,13 @@ export async function GET(req: NextRequest) {
                       {
                         $multiply: [
                           { $cos: { $degreesToRadians: lat } },
-                          { $cos: { $degreesToRadians: { $arrayElemAt: ["$location.coordinates", 1] } } },
+                          {
+                            $cos: {
+                              $degreesToRadians: {
+                                $arrayElemAt: ["$location.coordinates", 1],
+                              },
+                            },
+                          },
                           {
                             $pow: [
                               {
@@ -86,7 +115,11 @@ export async function GET(req: NextRequest) {
                                   $divide: [
                                     {
                                       $subtract: [
-                                        { $degreesToRadians: { $arrayElemAt: ["$location.coordinates", 0] } },
+                                        {
+                                          $degreesToRadians: {
+                                            $arrayElemAt: ["$location.coordinates", 0],
+                                          },
+                                        },
                                         { $degreesToRadians: lng },
                                       ],
                                     },
@@ -114,12 +147,13 @@ export async function GET(req: NextRequest) {
     }
 
     if (q) {
+      const regex = new RegExp(q, "i");
       pipeline.push({
         $match: {
           $or: [
-            { title: { $regex: q, $options: "i" } },
-            { description: { $regex: q, $options: "i" } },
-            { tags: { $elemMatch: { $regex: q, $options: "i" } } },
+            { title: { $regex: regex } },
+            { description: { $regex: regex } },
+            { tags: { $elemMatch: { $regex: regex } } },
           ],
         },
       });
@@ -131,36 +165,49 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    if (q || tags.length) {
-      pipeline.push({
-        $addFields: {
-          relevance: {
-            $add: [
-              q ? { $cond: [{ $regexMatch: { input: "$title", regex: q, options: "i" } }, 2, 0] } : 0,
-              q ? { $cond: [{ $regexMatch: { input: "$description", regex: q, options: "i" } }, 1, 0] } : 0,
-              tags.length ? { $size: { $setIntersection: ["$tags", tags] } } : 0,
-            ],
-          },
+    pipeline.push({
+      $addFields: {
+        relevance: {
+          $add: [
+            userInterests.length
+              ? { $size: { $setIntersection: ["$tags", userInterests] } }
+              : 0,
+            tags.length
+              ? { $size: { $setIntersection: ["$tags", tags] } }
+              : 0,
+          ],
         },
-      });
-      pipeline.push({ $sort: { relevance: -1, distanceMeters: 1, createdAt: -1 } });
-    } else if (!global) {
-      pipeline.push({ $sort: { distanceMeters: 1 } });
-    } else {
-      pipeline.push({ $sort: { createdAt: -1 } });
-    }
+      },
+    });
+
+    pipeline.push({
+      $addFields: {
+        hybridScore: {
+          $add: [
+            { $multiply: ["$relevance", 10] },
+            { $divide: [1, { $add: ["$distanceMeters", 1] }] },
+          ],
+        },
+      },
+    });
+
+    pipeline.push({
+      $sort: { hybridScore: -1, createdAt: -1 },
+    });
 
     pipeline.push({ $limit: 20 });
 
     const spots = await SpotModel.aggregate(pipeline);
+
+    console.log("✅ DB QUERY executed: Retrieved", spots.length, "spots");
+
     const responseData = { spots };
 
-    // --- 3. Save to cache with TTL ---
     await redis.set(cacheKey, JSON.stringify(responseData), "EX", 60);
 
     return NextResponse.json(responseData);
   } catch (error) {
-    console.error(error);
+    console.error("❌ Nearby Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

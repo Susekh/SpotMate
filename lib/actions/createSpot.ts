@@ -22,13 +22,16 @@ export async function createSpotAction(formData: FormData) {
       throw new Error("Missing required fields");
     }
 
-    const baseUrl = "http://localhost:3000";
+    const cookieStore = await cookies();
+
+    const baseUrl =
+      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
     const res = await fetch(`${baseUrl}/api/spots`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        cookie: cookies().toString(),
+        cookie: cookieStore.toString(),
       },
       body: JSON.stringify({
         title,
