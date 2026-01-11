@@ -1,11 +1,19 @@
 import Link from "next/link";
 
+type SpotLocation = {
+  coordinates: [number, number]; // [longitude, latitude]
+  address?: string;
+};
+
 type Spot = {
-    _id: string;
-    title: string;
-    description: string;
-    tags?: string[];
-    distanceKm?: number;
+  _id: string;
+  title: string;
+  description: string;
+  tags: string[];
+  location: SpotLocation;
+  gallery?: string[];
+  distanceKm?: number;
+  createdBy: string; 
 };
 
 export default function SpotCard({ spot }: { spot: Spot }) {
@@ -30,7 +38,7 @@ export default function SpotCard({ spot }: { spot: Spot }) {
             )}
             <div className="mt-3 flex gap-3 text-sm">
                 <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spot.title)}&query_place_id=`}
+                    href={`https://maps.google.com/maps?q=${spot.location.coordinates[1]},${spot.location.coordinates[0]}`}
                     target="_blank"
                     rel="noreferrer"
                     className="underline cursor-pointer hover:opacity-80 transition"

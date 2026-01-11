@@ -10,12 +10,20 @@ import { Crown, Plus, Compass, Zap } from "lucide-react";
 
 type Session = typeof auth.$Infer.Session;
 
+type SpotLocation = {
+  coordinates: [number, number]; // [longitude, latitude]
+  address?: string;
+};
+
 type Spot = {
   _id: string;
   title: string;
   description: string;
-  tags?: string[];
+  tags: string[];
+  location: SpotLocation;
+  gallery?: string[];
   distanceKm?: number;
+  createdBy: string; 
 };
 
 export default function DashboardClientPage({ session }: { session: Session }) {
